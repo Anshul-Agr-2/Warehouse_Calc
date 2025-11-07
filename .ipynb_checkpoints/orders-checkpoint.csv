@@ -1,0 +1,11 @@
+SKU_ID,Product_Category,Dimensions_CM_LxWxH,Weight_KG,Storage_Type,Average_Daily_Orders
+PROD_A01,Electronics,20x15x10,1.5,Shelf,500
+PROD_A02,Electronics,25x20x12,2.1,Shelf,450
+PROD_B01,Apparel,30x25x5,0.4,Bin,800
+PROD_B02,Apparel,35x30x5,0.5,Bin,750
+PROD_C01,Home_Goods,45x40x20,5.5,Rack,350
+PROD_C02,Home_Goods,50x45x25,6.2,Rack,300
+PROD_D01,Consumables,15x10x5,0.2,Bin,1200
+PROD_D02,Consumables,18x12x6,0.3,Bin,1100
+PROD_E01,Office_Supplies,10x8x4,0.1,Shelf,250
+PROD_E02,Office_Supplies,12x10x5,0.2,Shelf,200
