@@ -35,7 +35,7 @@ if uploaded:
         "product_category":"category"
     })
     st.write("Loaded columns:", df.columns.tolist())
-    tab1, tab2 = st.tabs(["Classification & Layout", "SKU Demand Forecaster"])
+    tab1, tab2, tab3 = st.tabs(["Classification & Layout", "SKU Demand Forecaster", "AGV Routing"])
     with tab1:
         st.header("ABC Classification")
         a_pct = st.slider("ABC 'A' cutoff (%)", 0.05, 0.90, 0.3)
@@ -165,6 +165,90 @@ if uploaded:
         axs2[2].pie(df_forecast['weight_bin_forecast'].value_counts(), labels=df_forecast['weight_bin_forecast'].value_counts().index, autopct='%1.1f%%', colors=["#a0e7e5","#b4a0e7","#e7a0a0"])
         axs2[2].set_title("Weight Bins (Forecast)")
         st.pyplot(fig2)
+
+    with tab3:
+        st.header("AGV Routing & Path Optimization")
+        st.write("Visualize AGV paths between warehouse zones using shortest-path algorithms.")
+        
+        # Define nodes (locations in warehouse)
+        nodes = {
+            "Receiving": (50, 50),
+            "Zone_A_Rack": (200, 150),
+            "Zone_A_Shelf": (400, 150),
+            "Zone_B_Rack": (200, 400),
+            "Zone_B_Shelf": (400, 400),
+            "Zone_C_Rack": (200, 650),
+            "Zone_C_Shelf": (400, 650),
+            "Shipping": (650, 50),
+            "Outbound": (650, 400)
+        }
+        
+        # Distance matrix (Euclidean or real path distances)
+        import numpy as np
+        def euclidean_distance(p1, p2):
+            return np.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+        
+        node_names = list(nodes.keys())
+        n = len(node_names)
+        distance_matrix = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                distance_matrix[i, j] = euclidean_distance(nodes[node_names[i]], nodes[node_names[j]])
+        
+        # Display distance matrix
+        st.subheader("Distance Matrix (Euclidean)")
+        df_dist = pd.DataFrame(distance_matrix, index=node_names, columns=node_names)
+        st.dataframe(df_dist.style.format("{:.1f}"))
+        
+        # Path planning with Dijkstra
+        from scipy.sparse.csgraph import dijkstra
+        st.subheader("Shortest Path Finder")
+        start_node = st.selectbox("Start Location", node_names, index=0)
+        end_node = st.selectbox("End Location", node_names, index=7)
+        
+        dist_matrix_sparse = distance_matrix.copy()
+        distances, predecessors = dijkstra(dist_matrix_sparse, return_predecessors=True, indices=node_names.index(start_node))
+        
+        end_idx = node_names.index(end_node)
+        shortest_distance = distances[end_idx]
+        st.write(f"Shortest distance from {start_node} to {end_node}: **{shortest_distance:.2f} units**")
+        
+        # Reconstruct path
+        path_indices = []
+        current = end_idx
+        while current != -9999:
+            path_indices.insert(0, current)
+            current = predecessors[current]
+            if current == -9999 or current == node_names.index(start_node):
+                path_indices.insert(0, node_names.index(start_node))
+                break
+        
+        path_names = [node_names[i] for i in path_indices]
+        st.write(f"Path: {' → '.join(path_names)}")
+        
+        # Visualize AGV route on warehouse map
+        st.subheader("AGV Route Visualization")
+        img = Image.open(IMG_PATH).resize((IMG_WIDTH, IMG_HEIGHT))
+        fig, ax = plt.subplots(figsize=(10, 8))
+        ax.imshow(img, extent=[0, IMG_WIDTH, IMG_HEIGHT, 0])
+        
+        # Plot all nodes
+        for name, (x, y) in nodes.items():
+            ax.scatter(x, y, color='blue', s=100, zorder=5)
+            ax.text(x+10, y-10, name, fontsize=8, color='black', weight='bold')
+        
+        # Plot AGV path
+        path_coords = [nodes[name] for name in path_names]
+        if len(path_coords) > 1:
+            xs, ys = zip(*path_coords)
+            ax.plot(xs, ys, color='red', linewidth=3, marker='o', markersize=8, label='AGV Route', zorder=10)
+        
+        ax.set_xlim(0, IMG_WIDTH)
+        ax.set_ylim(IMG_HEIGHT, 0)
+        ax.legend()
+        ax.axis('off')
+        st.pyplot(fig)
+
 
 else:
     st.info("Upload a CSV with columns SKU_ID, Product_Category, Dimensions_CM(LxWxH), Weight_KG, Storage_Type, Average_Daily_Orders")
