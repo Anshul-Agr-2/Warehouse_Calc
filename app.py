@@ -81,31 +81,61 @@ if uploaded:
 
         st.header("Warehouse Map Visualization")
         img = Image.open(IMG_PATH).resize((IMG_WIDTH, IMG_HEIGHT))
-        fig, ax = plt.subplots(figsize=(12,3.5))
-        ax.imshow(img)
+        fig, ax = plt.subplots(figsize=(14, 10))
+        ax.imshow(img, extent=[0, IMG_WIDTH, IMG_HEIGHT, 0])
+        
+        # Define exact coordinates from your input
+        STORAGE_COORDS = {
+            "A": {"Rack": (215, 200), "Shelf": (400, 200), "Bin": (555, 200)},
+            "B": {"Rack": (215, 365), "Shelf": (400, 365), "Bin": (555, 365)},
+            "C": {"Rack": (215, 530), "Shelf": (400, 530), "Bin": (555, 530)}
+        }
+        
+        # Plot zone headers
+        for zone, coords_dict in STORAGE_COORDS.items():
+            first_coord = list(coords_dict.values())[0]
+            ax.text(first_coord[0] - 50, first_coord[1] - 30, f"ZONE {zone}", 
+                    fontsize=18, color=ZONE_COLOR[zone], weight="bold", ha="left")
+        
+        # Plot storage type headers (Rack, Shelf, Bin)
+        for zone, coords_dict in STORAGE_COORDS.items():
+            for storage_type, (x, y) in coords_dict.items():
+                ax.text(x, y - 15, storage_type, fontsize=10, 
+                        color=PART_COLOR[storage_type], weight="bold", ha="center")
+        
+        # Plot SKUs as dots with labels
+        offset_x = 0  # Horizontal offset for multiple SKUs in same location
+        offset_y = 20  # Vertical spacing between SKUs
+        
         for zone in ["A", "B", "C"]:
-            zone_y = ZONE_Y[zone]
-            ax.text(IMG_WIDTH//2, zone_y-18, f"ZONE {zone}", fontsize=16, color=ZONE_COLOR[zone], weight="bold", ha="center")
-            for part in PARTITIONS:
-                x0 = PART_X[part]
-                ax.text(x0, zone_y-7, part, fontsize=12, color=PART_COLOR[part], ha="left", weight="bold")
-                ax.add_patch(Rectangle((x0, zone_y), 180, 35, color=PART_COLOR[part], alpha=0.05))
-                for idx, xyz in enumerate(["X","Y","Z"]):
-                    x_band = x0+7+idx*58
-                    ax.text(x_band+28, zone_y+3, XYZ_LABELS[xyz], fontsize=9, color=XYZ_COLOR[xyz], ha="center")
-                    skus = df_sorted[(df_sorted['abc']==zone)
-                                    & (df_sorted['storage'].str.lower()==part.lower())
-                                    & (df_sorted['xyz']==xyz)]
-                    for k, row in enumerate(skus.itertuples()):
-                        sku_id = getattr(row, "sku_id", "")
-                        wbin = getattr(row, "weight_bin", "")
-                        if wbin is None: wbin = ""
-                        rx = x_band + k*55
-                        ry = zone_y + 16 + idx*14
-                        label = f"{sku_id}\n{wbin}"
-                        box = Rectangle((rx, ry), 46, 13, color=XYZ_COLOR[xyz], ec=ZONE_COLOR[zone], lw=1.5, alpha=0.8)
-                        ax.add_patch(box)
-                        ax.text(rx+23, ry+7, label, ha="center", va="center", fontsize=7, color="black")
+            for storage_type in ["Rack", "Shelf", "Bin"]:
+                # Filter SKUs by ABC zone and storage type
+                skus = df_sorted[(df_sorted['abc'] == zone) & 
+                                (df_sorted['storage'].str.lower() == storage_type.lower())]
+                
+                if len(skus) == 0:
+                    continue
+                
+                # Get base coordinates
+                base_x, base_y = STORAGE_COORDS[zone][storage_type]
+                
+                # Plot each SKU
+                for i, row in enumerate(skus.itertuples()):
+                    sku_id = getattr(row, "sku_id", "")
+                    wbin = getattr(row, "weight_bin", "")
+                    
+                    # Calculate position with offset
+                    x = base_x + (i % 3) * 30 - 30  # Spread horizontally (3 per row)
+                    y = base_y + (i // 3) * offset_y + 10  # Stack vertically
+                    
+                    # Plot dot
+                    ax.scatter(x, y, color=ZONE_COLOR[zone], s=50, edgecolors='black', linewidths=1, zorder=10)
+                    
+                    # Plot label (SKU ID)
+                    ax.text(x + 8, y, f"{sku_id}", fontsize=6, color='black', ha="left", va="center")
+        
+        ax.set_xlim(0, IMG_WIDTH)
+        ax.set_ylim(IMG_HEIGHT, 0)
         ax.axis('off')
         st.pyplot(fig)
 
@@ -172,16 +202,21 @@ if uploaded:
         
         # Define nodes (locations in warehouse)
         nodes = {
-            "Receiving": (50, 50),
-            "Zone_A_Rack": (200, 150),
-            "Zone_A_Shelf": (400, 150),
-            "Zone_B_Rack": (200, 400),
-            "Zone_B_Shelf": (400, 400),
-            "Zone_C_Rack": (200, 650),
-            "Zone_C_Shelf": (400, 650),
-            "Shipping": (650, 50),
-            "Outbound": (650, 400)
+            "Receiving": (50, 85),
+            "Inbound": (128, 85),
+            "Zone_A_Rack": (215, 200),
+            "Zone_A_Shelf": (400, 200),
+            "Zone_A_Bin": (555, 200),
+            "Zone_B_Rack": (215, 365),
+            "Zone_B_Shelf": (400, 365),
+            "Zone_B_Bin": (555, 365),
+            "Zone_C_Rack": (215, 530),
+            "Zone_C_Shelf": (400, 530),
+            "Zone_C_Bin": (555, 530),
+            "Outbound": (583, 85),
+            "Shipping": (655, 85)
         }
+
         
         # Distance matrix (Euclidean or real path distances)
         import numpy as np
